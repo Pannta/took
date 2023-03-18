@@ -2,8 +2,8 @@ package logic
 
 import (
 	"context"
-	"math/rand"
 
+	"took/chat/rpc/types/chat"
 	"took/user/model"
 	"took/user/rpc/internal/svc"
 	"took/user/rpc/types/user"
@@ -36,21 +36,21 @@ func (l *GetFriendListLogic) GetFriendList(in *user.FriendListReq) (*user.Friend
 		friendList[i].IsFollow = isFollow
 	}
 
-	// 与好友的最新信息，待完善...
-	text := []string{
-		"最近在忙什么？",
-		"明天还有个PPT展示",
-		"hello",
-		"今晚去哪吃饭？",
-		"来打游戏不？",
-		"来了来了",
-		"后天吧，明天还有事",
-		"搞快点，就差你一个了",
-		"睡觉了，白白",
-	}
 	for i := range friendList {
-		friendList[i].Message = text[rand.Intn(len(text))]
-		friendList[i].MsgType = rand.Int63n(2)
+		var message chat.Message
+		has, err := l.svcCtx.CommonModel.Where("(from_user_id=? AND to_user_id=?) OR (from_user_id=? AND to_user_id=?)", 
+			in.ToUserId, friendList[i].Id, friendList[i].Id, in.ToUserId).Desc("id").Get(&message)
+		if err != nil {
+			return nil, err
+		}
+		if has {
+			friendList[i].Message = message.Content
+			if message.ToUserId == in.ToUserId {
+				friendList[i].MsgType = 0
+			} else {
+				friendList[i].MsgType = 1
+			}
+		}
 	}
 
 	return &user.FriendListResp{
